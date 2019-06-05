@@ -1,13 +1,31 @@
+#!/usr/bin/env python
+
+# -*- coding: utf-8 -*-
+
+
+
+# ==================================================================
+
+# SpheroidSegment
+
+#  A spheroid segmentation tool custom-made for image analysis
+# and graph construction.
+
+#
+
+#   Copyright 2019 Gustave Ronteix
+
+#   MIT License
+
+#
+
+#   Source Repository: https://github.com/gronteix/3D-segmentation
+
+# ==================================================================
+
 import multiprocessing as mp
 import os
-import spheroid.py
-
-'''Generic workflow for segmenting and analyzing the images. It goes
-through the following steps:
-1) List files in rep
-2) Segment files and extract relevant info
-3) Store relevant info
-'''
+from spheroid import spheroid
 
 ###### PARAMETERS ######
 
