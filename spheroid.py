@@ -46,8 +46,8 @@ class spheroid:
         self.NucImage = []
         self.DeadImage = []
         self.BorderCrop = 300 # pixels cropped on border
-        self.Thresh = 200 # thresh for dead cell detection
-        self.ThreshCell = 200 # thresh for live cell detection
+        self.Thresh = 300 # thresh for dead cell detection
+        self.ThreshCell = 150 # thresh for live cell detection
         self.Percentile = 30 # you dump pixels below this relative threshold
 
 
@@ -134,9 +134,9 @@ class spheroid:
 
         for cellLabel in self.Spheroid['cells'].keys():
 
-            x = self.Spheroid['cells'][cellLabel]['x']
-            y = self.Spheroid['cells'][cellLabel]['y']
-            z = self.Spheroid['cells'][cellLabel]['z']
+            x = int(self.Spheroid['cells'][cellLabel]['x'])
+            y = int(self.Spheroid['cells'][cellLabel]['y'])
+            z = int(self.Spheroid['cells'][cellLabel]['z'])
 
             zlen, _, _ = np.nonzero(mask)
 
@@ -253,9 +253,11 @@ class spheroid:
 
             dic = {}
 
-            dic['x'] = df.loc[df['label'] == label, 'x'].iloc[0]
-            dic['y'] = df.loc[df['label'] == label, 'y'].iloc[0]
-            dic['z'] = df.loc[df['label'] == label, 'z'].iloc[0]
+            # All values are strings since json doesn't know ints
+
+            dic['x'] = str(df.loc[df['label'] == label, 'x'].iloc[0])
+            dic['y'] = str(df.loc[df['label'] == label, 'y'].iloc[0])
+            dic['z'] = str(df.loc[df['label'] == label, 'z'].iloc[0])
             dic['neighbours'] = self._nearestNeighbour(df, label, dCells, zRatio)
             dic['state'] = 'Live'
 
@@ -308,9 +310,9 @@ class spheroid:
 
             for cellLabel in self.Spheroid['cells'].keys():
 
-                x = self.Spheroid['cells'][cellLabel]['x']
-                y = self.Spheroid['cells'][cellLabel]['y']
-                z = self.Spheroid['cells'][cellLabel]['z']
+                x = int(self.Spheroid['cells'][cellLabel]['x'])
+                y = int(self.Spheroid['cells'][cellLabel]['y'])
+                z = int(self.Spheroid['cells'][cellLabel]['z'])
 
                 if (r**2 - (z -n)**2/self.ZRatio**2) > 0:
 

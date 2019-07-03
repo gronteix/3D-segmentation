@@ -53,6 +53,8 @@ def _sortFiles(path):
 
 def _saveSpheroid(sph, path):
 
+    print(path)
+
     with open(path, 'w') as fp:
 
         json.dump(sph, fp, default = default)
@@ -63,7 +65,9 @@ def _makeSingleSpheroidClass(path, spheroidFolder, timeFolder, zRatio, rNoyau,
 
     print('prep image: ' + spheroidFolder + ' folder and time ' + timeFolder)
 
-    Sph = spheroid(path, spheroidFolder, timeFolder, zRatio, rNoyau, dCells)
+    filePath =  path + r'\\' + spheroidFolder + r'\\' + timeFolder
+
+    Sph = spheroid(filePath, spheroidFolder, timeFolder, zRatio, rNoyau, dCells)
     # Initialize spheroid
 
     try:
@@ -89,18 +93,18 @@ def _makeSingleSpheroidClass(path, spheroidFolder, timeFolder, zRatio, rNoyau,
 
             Sph._initializeDead()
 
-        if not os.path.exists(path + r'\\' + Spheroids):
-            os.mkdir(path + r'\\' + Spheroids)
+        if not os.path.exists(path + r'\\' + 'Spheroids'):
+            os.mkdir(path + r'\\' + 'Spheroids')
 
-        process._saveSpheroid(Sph.Spheroid, path + r'\\' + Spheroids +
-            '\spheroid_' + spheroidFolder + r'_' +  timeFolder + '.json')
+        _saveSpheroid(Sph.Spheroid, path + r'\\' + 'Spheroids' +
+            '\\spheroid_' + spheroidFolder + r'_' +  timeFolder + '.json')
 
         Sph._verifySegmentation()
 
     except: print('Error on: '+ spheroidFolder + ' folder and time ' + timeFolder)
 
 
-def _makeSpheroidClass(path, zRatio, rNoyau, dCells):
+def _makeSpheroidClass(path, zRatio, rNoyau, dCells, channels):
 
     """
     ====== COMMENT =======
@@ -125,7 +129,7 @@ def _makeSpheroidClass(path, zRatio, rNoyau, dCells):
 
     return print('Spheroids made')
 
-def _makeSphParrallel(path, key, zRatio, rNoyau, dCells):
+def _makeSphParrallel(path, key, zRatio, rNoyau, dCells, channels):
 
     """
     ====== COMMENT =======
@@ -133,10 +137,10 @@ def _makeSphParrallel(path, key, zRatio, rNoyau, dCells):
     Function to be optimized for parrallization.
     """
 
-    spheroidPath = key.split(path)
-    spheroidPath, timePath = spheroidPath.split('\\')
+    _, spheroidFolder = key.split(path)
+    _, spheroidFolder, timeFolder = spheroidFolder.split('\\')
 
-    _makeSingleSpheroidClass(path, spheroidPath,
-                        timePath, zRatio, dCells, channels)
+    _makeSingleSpheroidClass(path, spheroidFolder, timeFolder, zRatio, rNoyau,
+        dCells, channels)
 
     return print('Spheroids made')

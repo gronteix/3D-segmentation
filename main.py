@@ -25,34 +25,37 @@
 
 import multiprocessing as mp
 import os
+import glob
+import tqdm
 
 import process
 
 ###### PARAMETERS ######
 
-livePosition = 0
-deadPosition = 1
+livePosition = 1
+deadPosition = 0
 
 channels = [livePosition, deadPosition]
 
 zRatio = 1/5
-rNoyau = 9
+rNoyau = 10
 dCells = 70
 
-path = r'PATH NAME'
+path = r'X:\Gustave\Experiments\Nuclei Segmentation\01072019\tif'
 
 ###### START OF STUDY ######
 
 process._sortFiles(path)
-process._makeSpheroidClass(path, zRatio, rNoyau, dCells)
 
-output = mp.Queue()
+if __name__ == '__main__':
 
-processes = [mp.Process(target=_makeSphParrallel, args=(path, key, zRatio,
-    rNoyau, dCells)) for key in glob.glob(path + r'\\**\\**')]
+    output = mp.Queue()
 
-for p in tqdm(processes):
-    p.start()
+    processes = [mp.Process(target=process._makeSphParrallel, args=(path, key, zRatio,
+        rNoyau, dCells, channels)) for key in glob.glob(path + r'\\**\\**')]
 
-for p in tqdm(processes):
-    p.join()
+    for p in processes:
+        p.start()
+
+    for p in tqdm(processes):
+        p.join()
