@@ -48,10 +48,8 @@ process._makeSpheroidClass(path, zRatio, rNoyau, dCells)
 
 output = mp.Queue()
 
-### MODIFY FUNCTION FOR PARR
-
-processes = [mp.Process(target=_makeSpheroidClass, args=(path, key, zRatio,
-    rNoyau, dCells)) for key in tqdm(os.listdir(path))]
+processes = [mp.Process(target=_makeSphParrallel, args=(path, key, zRatio,
+    rNoyau, dCells)) for key in glob.glob(path + r'\\**\\**')]
 
 for p in tqdm(processes):
     p.start()

@@ -124,3 +124,19 @@ def _makeSpheroidClass(path, zRatio, rNoyau, dCells):
                         timePath, zRatio, dCells, channels)
 
     return print('Spheroids made')
+
+def _makeSphParrallel(path, key, zRatio, rNoyau, dCells):
+
+    """
+    ====== COMMENT =======
+
+    Function to be optimized for parrallization.
+    """
+
+    spheroidPath = key.split(path)
+    spheroidPath, timePath = spheroidPath.split('\\')
+
+    _makeSingleSpheroidClass(path, spheroidPath,
+                        timePath, zRatio, dCells, channels)
+
+    return print('Spheroids made')
