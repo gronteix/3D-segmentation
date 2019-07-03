@@ -30,17 +30,28 @@ import process
 
 ###### PARAMETERS ######
 
-path = r'D:\Gustave\27052019_TL'
-zRatio = 1/4
-rNoyau = 12
-dCells = 80
+livePosition = 0
+deadPosition = 1
+
+channels = [livePosition, deadPosition]
+
+zRatio = 1/5
+rNoyau = 9
+dCells = 70
+
+path = r'PATH NAME'
 
 ###### START OF STUDY ######
 
+process._sortFiles(path)
+process._makeSpheroidClass(path, zRatio, rNoyau, dCells)
+
 output = mp.Queue()
 
-processes = [mp.Process(target=_makeSpheroidClass, args=(path, key, zRatio, rNoyau, dCells))
-    for key in tqdm(os.listdir(path))]
+### MODIFY FUNCTION FOR PARR
+
+processes = [mp.Process(target=_makeSpheroidClass, args=(path, key, zRatio,
+    rNoyau, dCells)) for key in tqdm(os.listdir(path))]
 
 for p in tqdm(processes):
     p.start()

@@ -1,9 +1,114 @@
+from __future__ import (absolute_import, division, print_function,
+    unicode_literals)
 
 import os
 import json
+from tqdm import tqdm_notebook as tqdm
+
 from spheroid import spheroid
 
-def _makeSpheroidClass(path, spheroidFolder, zRatio, rNoyau, dCells):
+def default(o):
+    if isinstance(o, np.int64): return int(o)
+    raise TypeError
+
+def _sortFiles(path):
+
+    print('Please verify that the filename order is $xy$ then $z$ then $t$')
+
+    for fileName in tqdm(os.listdir(path)):
+
+        if not os.path.isdir(path + r'\\' + fileName):
+
+            try:
+
+                fileName, ending = fileName.split('.')
+
+                if not 't' in fileName:
+
+                    _, position = fileName.split('xy')
+                    position, _ = position.split('z')
+
+                    time = '00'
+
+                elif 't' in fileName:
+
+                    _, position = fileName.split('xy')
+                    position, time = position.split('z')
+                    _, time = time.split('t')
+
+
+                if not os.path.exists(path + r'\\' + position):
+                    os.mkdir(path + r'\\' + position)
+
+                if not os.path.exists(path + r'\\' + position + r'\\' + time):
+                    os.mkdir(path + r'\\' + position + r'\\' + time)
+
+                os.rename(path + r'\\' + fileName, path + r'\\' + position + r'\\'
+                    + time + r'\\' + fileName)
+
+                return print('job done')
+
+            except: print("check the file name structure")
+
+
+def _saveSpheroid(sph, path):
+
+    with open(path, 'w') as fp:
+
+        json.dump(sph, fp, default = default)
+
+
+def _makeSingleSpheroidClass(path, spheroidFolder, timeFolder, zRatio, rNoyau,
+    dCells, channels):
+
+    print('prep image: ' + spheroidFolder + ' folder and time ' + timeFolder)
+
+    Sph = spheroid(path, spheroidFolder, timeFolder, zRatio, rNoyau, dCells)
+    # Initialize spheroid
+
+    try:
+
+        if len(channels) == 2: # Improve dependancy on channel number...
+
+            Sph._loadImage(channels[0], 'NucImage') # Load live cells
+            Sph._loadImage(channels[1], 'DeadImage') # Load dead cells
+
+        elif len(channels) == 1:
+
+            Sph._loadImage(channels[0], 'NucImage')
+
+        print('image made, starting nuclei ID')
+
+        Sph._getNuclei() # identification of nuclei positions
+
+        print('nuclei gotten, make spheroid')
+
+        Sph._makeSpheroid() # creation of dict object
+
+        if len(channels) == 2:
+
+            Sph._initializeDead()
+
+        if not os.path.exists(path + r'\\' + Spheroids):
+            os.mkdir(path + r'\\' + Spheroids)
+
+        process._saveSpheroid(Sph.Spheroid, path + r'\\' + Spheroids +
+            '\spheroid_' + spheroidFolder + r'_' +  timeFolder + '.json')
+
+        Sph._verifySegmentation()
+
+    except: print('Error on: '+ spheroidFolder + ' folder and time ' + timeFolder)
+
+
+def _makeSpheroidClass(path, zRatio, rNoyau, dCells):
+
+    """
+    ====== COMMENT =======
+
+    Function to be optimized for parrallization.
+    """
+
+    for spheroidFolder in tqdm(os.listdir(path)):
 
         spheroidPath = path + '/' + spheroidFolder
 
@@ -15,29 +120,7 @@ def _makeSpheroidClass(path, spheroidFolder, zRatio, rNoyau, dCells):
 
                 if os.path.isdir(timePath):
 
-                    print('prep image: ' + spheroidFolder + ' folder and time '
-                        + timeFolder)
+                    _makeSingleSpheroidClass(path, spheroidPath,
+                        timePath, zRatio, dCells, channels)
 
-                    Sph = spheroid(timePath, spheroidFolder, timeFolder, zRatio,
-                        rNoyau, dCells)
-
-                    try:
-
-                        # Pay attention to the channel order in the experiments
-
-                        Sph._loadImageNuclei(1)
-                        Sph._loadImageDead(0)
-                        Sph._getNuclei()
-                        Sph._makeSpheroid()
-
-                        Sph._initializeDead()
-
-                        with open(path + '\spheroid_' + spheroidFolder + r'_' +
-                            timeFolder + '.json', 'w') as fp:
-
-                            json.dump(Sph.Spheroid, fp, default = default)
-
-                        Sph._verifySegmentation()
-
-                    except: print('Error on: '+ spheroidFolder +
-                        ' folder and time ' + timeFolder)
+    return print('Spheroids made')
