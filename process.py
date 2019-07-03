@@ -93,6 +93,10 @@ def _makeSingleSpheroidClass(path, spheroidFolder, timeFolder, zRatio, rNoyau,
 
             Sph._initializeDead()
 
+        print('refine the analysis over the spheroid')
+
+        Sph._refineSph() # creation of dict object
+
         if not os.path.exists(path + r'\\' + 'Spheroids'):
             os.mkdir(path + r'\\' + 'Spheroids')
 

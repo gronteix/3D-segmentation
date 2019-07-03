@@ -280,6 +280,40 @@ class spheroid:
         return lf.loc[np.sqrt((lf['x'] - x)**2 + (lf['y'] - y)**2 +
             (lf['z'] - z)**2/zRatio**2) < dCells, 'label'].values.tolist()
 
+    def _makeG(self):
+
+        G=nx.Graph()
+        _Cells = self.Spheroid['cells']
+        G.add_nodes_from(_Cells.keys())
+
+        for key in _Cells.keys():
+
+            neighbours = _Cells[key]['neighbours']
+
+            for node in neighbours:
+
+                G.add_edge(key, node)
+
+        return G
+
+    def _refineSph(self):
+
+        G = self._makeG()
+
+        A = nx.betweenness_centrality(G) # betweeness centrality
+        B = nx.clustering(G)
+        C = nx.degree(G)
+
+        for v in G:
+
+            self.Spheroid['cells'][v]['degree'] = C[v]
+            self.Spheroid['cells'][v]['clustering'] = B[v]
+            self.Spheroid['cells'][v]['centrality'] = A[v]
+
+        self.Spheroid['N'] = len(self.Spheroid['cells'])
+        self.Spheroid['assortativity'] = nx.degree_assortativity_coefficient(G)
+        self.Spheroid['average degree'] = np.asarray([float(C[v]) for v in G]).mean()
+
 
     def _verifySegmentation(self):
 
