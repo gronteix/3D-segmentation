@@ -6,7 +6,7 @@ Repository to temporarily store my spheroid segmentation algorithm.
 
 Image analysis algorithm to find cell nuclei in confocal image stacks. These are then used to define a connection graph of the spheroid.
 
-## File prep
+## File preparation
 
 The details of the image analysis are customized for our images. The same is true of the file organization. Ours has the following structure:
 
