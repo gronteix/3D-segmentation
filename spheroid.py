@@ -1,32 +1,29 @@
+from __future__ import (absolute_import, division, print_function,
+    unicode_literals)
+
 import os
 import numpy as np
 import pandas
-import glob
-from tqdm import tqdm_notebook as tqdm
-import json
-
-# Maths
+import os
+import skimage
 from scipy import ndimage, signal
-
-# Image
 from skimage import exposure
-from skimage import io
-from skimage import feature
-
-# Plot
 import matplotlib.pyplot as plt
+from skimage import io
+import scipy
+from scipy import signal
+from skimage import feature
+import json
 from matplotlib_scalebar.scalebar import ScaleBar
-
-# Graphs
 import networkx as nx
-
+import timeit
 
 
 class spheroid:
 
     """ Spheroid class containing the necessary info to build the spheroid.
 
-    ====== NOTICE ======
+    ====== COMMENT ======
 
      - All variables starting with a capital letter refer to class variables.
      - All variables starting with '_' refer to a dict
@@ -36,11 +33,7 @@ class spheroid:
 
     path: string object, path to the folder storing images
     position: string object, well ID
-    time: string object, time of experiment
-    zRatio: ratio between x,y and z pixels
-    rNoyau: assumed radius of the cell nuclei
-    dCells: distance between two nuclei in order for them to be considered in
-        contact"""
+    time: string object, time of experiment"""
 
     def __init__(self, path, position, time, zRatio, rNoyau, dCells):
 
@@ -52,62 +45,56 @@ class spheroid:
         self.DCells = dCells
         self.NucImage = []
         self.DeadImage = []
-        self.Thresh = 500
-        self.ThreshCell = 200
-
-    def _loadSpheroid(self, spheroidDict):
-
-        self.spheroid = spheroidDict
+        self.BorderCrop = 300 # pixels cropped on border
+        self.Thresh = 200 # thresh for dead cell detection
+        self.ThreshCell = 200 # thresh for live cell detection
+        self.Percentile = 30 # you dump pixels below this relative threshold
 
 
-    def _loadImageNuclei(self, channelNuc):
+    def _loadImage(self, channel, type):
 
-        """Function creating the 3D matrix image of the nuclei"""
+        """ Function to load the images corresponding to a given channel
 
-        image_list = []
-        for filename in sorted(glob.glob(path + r'/' + '*.tif')): #assuming tif
+        ====== COMMENT ======
 
-            im = io.imread(self.Path + '/' + filename)
-            image_list.append(im[channelNuc])
+        The function needs to be improved so as to add new channels without
+        requiring to manually add new channels by hand.
 
-        self.NucImage = np.reshape(image_list, (len(image_list),
-            np.shape(image_list[0])[0], np.shape(image_list[0])[1]))
-
-    def _loadImageDead(self, channelDead):
-
-        """Function creating the 3D matrix image of the dead cells"""
+        """
 
         image_list = []
-        for filename in sorted(glob.glob(path + r'/' + '*.tif')): #assuming tif
+        for filename in sorted(os.listdir(self.Path)): #assuming tif
 
-            im = io.imread(self.Path + '/' + filename)
-            image_list.append(im[channelDead])
+            if '.tif' in filename:
 
-        self.DeadImage = np.reshape(image_list, (len(image_list),
-            np.shape(image_list[0])[0], np.shape(image_list[0])[1]))
+                im = io.imread(self.Path + '/' + filename)
+                image_list.append(im[channel])
+
+        if type == 'NucImage':
+
+            self.NucImage = np.reshape(image_list, (len(image_list),
+                np.shape(image_list[0])[0], np.shape(image_list[0])[1]))[:,
+                self.BorderCrop:-self.BorderCrop, self.BorderCrop:-self.BorderCrop]
+
+        if type == 'DeadImage':
+
+            self.DeadImage = np.reshape(image_list, (len(image_list),
+                np.shape(image_list[0])[0], np.shape(image_list[0])[1]))[:,
+                self.BorderCrop:-self.BorderCrop, self.BorderCrop:-self.BorderCrop]
 
 
     def _getNuclei(self):
 
-        if not len(self.NucImage):
-
-            ### Check that image to study does exist
-
-            print('Image doesnt exist')
+        """
+        Creates the dataframe containing all the cells of the Spheroid.
+        The duplicata clean function is eliminated. Indeed, the local maximum
+        makes it impossible for any cell to be segmented twice along the z-axis.
+        """
 
         self._getMaximaFrame(self._getMaskImage(), self.ZRatio, self.RNoyau)
-        self._duplicataClean()
 
 
     def _makeSpheroid(self):
-
-        ### COPYPASTE ABOVE
-
-        if not len(self.NucFrame):
-
-            ### Check that image to study does exist
-
-            print('Image doesnt exist')
 
         """Generates the spheroid dict containing all the essential information about the spheroid.
 
@@ -134,16 +121,6 @@ class spheroid:
 
     def _initializeDead(self):
 
-        """Loops through the spheroid dict to modify the state of detected
-         dead cells.
-
-         1) We define a mask
-         2)convolve through the self.DeadImage matrix
-         3) consider any given cell dead if the value of the convolution
-         is above a certain threshold."""
-
-        # Creating the mask
-
         X = np.arange(0, 40)
         Y = np.arange(0, 40)
         Z = np.arange(0, 40)
@@ -152,11 +129,8 @@ class spheroid:
         mask = np.sqrt((X-20)**2 + (Y-20)**2 + (Z-20)**2/self.ZRatio**2) < self.RNoyau
         mask = np.transpose(mask, (2,1,0)).astype(np.int)
 
-        # Convolution
-
         deadConv = scipy.signal.fftconvolve(self.DeadImage, mask, mode='same')
 
-        # Testing the cells
 
         for cellLabel in self.Spheroid['cells'].keys():
 
@@ -166,63 +140,23 @@ class spheroid:
 
             zlen, _, _ = np.nonzero(mask)
 
+            # Test dimension order to verify coherence
             if deadConv[z,x,y]/len(zlen) > self.Thresh:
+
+                print('Dead cell')
+
                 self.Spheroid['cells'][cellLabel]['state'] = 'Dead'
 
-    def _verifySegmentation(self):
-
-        """Function producing images of the spheroid for analysis."""
-
-        if not len(self.NucFrame):
-            return print('Image doesnt exist')
-
-        if not os.path.exists(self.Path + r'/filmstack/'):
-            os.mkdir(self.Path + r'/filmstack/')
-
-        zshape, _, _ = np.shape(self.NucImage)
-
-        ImageAll = self.NucImage
-
-        for n in range(zshape):
-
-            Image = ImageAll[n,:,:]
-
-            plt.figure(figsize=(6, 6))
-            plt.subplot(111)
-            plt.imshow(Image, vmin=0, vmax=800, cmap=plt.cm.gray)
-            plt.axis('off')
-
-            scalebar = ScaleBar(0.0000006, location = 'lower right') # 1 pixel = 0.6 umeter
-            plt.gca().add_artist(scalebar)
-
-            r = self.RNoyau
-
-            for item, row in self.NucFrame.iterrows():
-
-                if (r**2 - (row['z'] -n)**2/self.ZRatio**2) > 0:
-
-                    rloc = np.sqrt(r**2 - (row['z'] -n)**2/self.ZRatio**2)
-                    s = np.linspace(0, 2*np.pi, 100)
-                    x = rloc*np.sin(s) + row['x']
-                    y = rloc*np.cos(s) + row['y']
-
-                    plt.plot(y, x, 'r-')
-
-            plt.savefig(self.Path + r'/filmstack/im_' + str(n) +'.png')
-            plt.close()
-
-    #### UTILITY FUNCTIONS ####
-
-    # Question: how store utility functions in Python class?
 
     def _getMaskImage(self):
 
-        blurred = ndimage.gaussian_filter(self.NucImage, sigma=2)
-        mask = (blurred > np.percentile(blurred, 93)).astype(np.float)
+        blurred = ndimage.gaussian_filter(self.NucImage, sigma=1)
+        mask = (blurred > np.percentile(blurred, self.Percentile)).astype(np.float)
         mask += 0.1
 
         binary_img = mask > 0.5
-        binary_img = skimage.morphology.binary_closing(ndimage.binary_dilation(ndimage.binary_erosion(binary_img)).astype(np.int))
+        binary_img = skimage.morphology.binary_closing(ndimage.binary_dilation(
+            ndimage.binary_erosion(binary_img)).astype(np.int))
 
         return np.multiply(blurred, binary_img)
 
@@ -245,61 +179,51 @@ class spheroid:
 
         mask_image_crop = Image[min(z):max(z), min(x):max(x), min(y):max(y)]
 
-        a = mask_image_crop
-        zDim, xDim, yDim = np.shape(mask_image_crop)
+        # Making of the convolution mask
 
-        X = np.arange(0, 20)
-        Y = np.arange(0, 20)
-        Z = np.arange(0, 20)
+        X = np.arange(0, 40)
+        Y = np.arange(0, 40)
+        Z = np.arange(0, 40)
         X, Y, Z = np.meshgrid(X, Y, Z)
 
-        mask = np.sqrt((X-10)**2 + (Y-10)**2 + (Z-10)**2/zRatio**2) < rNoyau
+        mask = np.sqrt((X-20)**2 + (Y-20)**2 + (Z-20)**2/zRatio**2) < rNoyau
         mask = np.transpose(mask, (2,1,0))
         zlen, _, _ = np.nonzero(mask)
 
-        conv = scipy.signal.fftconvolve(a, mask, mode='same')
+        start = timeit.default_timer()
 
-        mask_conv = ndimage.gaussian_filter(np.multiply(conv, binary_img[min(z):max(z), min(x):max(x), min(y):max(y)]),
-                                            sigma=2)/len(zlen)
+        # We divide by len(zlen) so has to have the average value over the mask
+
+        conv = scipy.signal.fftconvolve(ndimage.gaussian_filter(self.NucImage, sigma=1),
+            mask/len(zlen), mode='same')
+
+        mask_conv = ndimage.gaussian_filter(np.multiply(conv, binary_img), sigma=1)
+
+        stop = timeit.default_timer()
+
+        print('Convolution Time: ', stop - start)
 
         # Distance minimum entre deux noyaux repérés par l'algorithme de convolution
         # On prend exprès 10% de marge supplémentaire pour éviter les contacts inopportuns.
         # On fait aussi attention au liveau minimal d'intensite des pics.
 
-        # We use an absolute threshold for minima detection based upon manual
-        # verification of the images.
+        r = int(self.RNoyau)
 
-        coordinates = np.asarray(skimage.feature.peak_local_max(mask_conv,
-            threshold_abs=self.ThreshCell, min_distance= self.RNoyau))
+        start = timeit.default_timer()
 
-        coordinates[:, 0] += min(z)
-        coordinates[:, 1] += min(x)
-        coordinates[:, 2] += min(y)
+        coordinates = np.asarray(skimage.feature.peak_local_max(mask_conv, min_distance = r,
+            threshold_abs = self.ThreshCell))
 
-        df = pandas.DataFrame(coordinates, columns = ['z', 'x', 'y'])
+        stop = timeit.default_timer()
 
-        for ind, row in df.iterrows():
-            df.loc[ind, 'val'] = mask_conv[int(row['z']) - min(z), int(row['x']) - min(x), int(row['y']) - min(y)]
-            df.loc[ind, 'label'] = int(ind)
+        print('Corrdinates ID Time: ', stop - start)
+        print(str(len(coordinates)) + ' cells ID')
 
-        self.NucFrame = df
+        a, b = np.shape(coordinates)
 
+        coordinates = np.hstack((coordinates, np.asarray([np.arange(a)]).T))
 
-    def _duplicataClean(self):
-
-        """Very bright cells tend to be visible much beyond their true position.
-        Function cleans away these duplicatas by keeping just the brightest point."""
-
-        df = self.NucFrame
-
-        for ind, row in df.iterrows():
-
-            lf = df.loc[(df['x'] - row['x'])**2 + (df['y'] - row['y'])**2 < 4]
-
-            if len(lf) > 1:
-
-                a = len(df)
-                df = df.drop(lf.loc[lf['val'] < lf['val'].max()].index)
+        df = pandas.DataFrame(coordinates, columns = ['z', 'x', 'y', 'label'])
 
         self.NucFrame = df
 
@@ -339,6 +263,7 @@ class spheroid:
 
         return _Cells
 
+
     def _nearestNeighbour(self, df, label, dCells, zRatio):
 
         """Returns a list of float labels of the cells closest to the given label.
@@ -350,4 +275,55 @@ class spheroid:
 
         lf = df.loc[df['label'] != label].copy()
 
-        return lf.loc[np.sqrt((lf['x'] - x)**2 + (lf['y'] - y)**2 + (lf['z'] - z)**2/zRatio**2) < dCells, 'label'].values.tolist()
+        return lf.loc[np.sqrt((lf['x'] - x)**2 + (lf['y'] - y)**2 +
+            (lf['z'] - z)**2/zRatio**2) < dCells, 'label'].values.tolist()
+
+
+    def _verifySegmentation(self):
+
+        if not len(self.NucFrame):
+            return print('Image doesnt exist')
+
+        if not os.path.exists(self.Path + r'/filmstack/'):
+            os.mkdir(self.Path + r'/filmstack/')
+
+        zshape, _, _ = np.shape(self.NucImage)
+
+        ImageAll = self.NucImage
+
+        for n in range(zshape):
+
+            Image = ImageAll[n,:,:]
+
+            plt.figure(figsize=(12, 12))
+            plt.subplot(111)
+            plt.imshow(Image, vmin=0, vmax=1300, cmap=plt.cm.gray)
+            plt.axis('off')
+
+            scalebar = ScaleBar(0.0000003, location = 'lower right')
+            # 1 pixel = 0.3 um
+            plt.gca().add_artist(scalebar)
+
+            r = self.RNoyau
+
+            for cellLabel in self.Spheroid['cells'].keys():
+
+                x = self.Spheroid['cells'][cellLabel]['x']
+                y = self.Spheroid['cells'][cellLabel]['y']
+                z = self.Spheroid['cells'][cellLabel]['z']
+
+                if (r**2 - (z -n)**2/self.ZRatio**2) > 0:
+
+                    rloc = np.sqrt(r**2 - (z -n)**2/self.ZRatio**2)
+                    s = np.linspace(0, 2*np.pi, 100)
+                    x = rloc*np.sin(s) + x
+                    y = rloc*np.cos(s) + y
+
+                    if self.Spheroid['cells'][cellLabel]['state'] == 'Dead':
+
+                        plt.plot(y, x, 'r-')
+
+                    else: plt.plot(y, x, 'b-')
+
+            plt.savefig(self.Path + r'/filmstack/im_' + str(n) +'.png')
+            plt.close()
